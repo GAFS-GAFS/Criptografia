@@ -1,0 +1,2 @@
+Este documento simula uma mensagem enviada pelo sistema interno ao SAP.
+O SecureBridge deve cifrar o conteudo, transmiti-lo e recuperar exatamente os mesmos bytes.
