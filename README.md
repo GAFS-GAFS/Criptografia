@@ -16,7 +16,8 @@ No Ubuntu, Debian ou Linux Mint:
 
 ```bash
 sudo apt update
-sudo apt install g++ make libssl-dev
+sudo apt install g++ make libssl-dev python3 python3-pip
+python3 -m pip install -r requirements.txt
 ```
 
 O projeto precisa de:
@@ -24,6 +25,7 @@ O projeto precisa de:
 - Compilador compatível com C++17;
 - GNU Make;
 - Cabeçalhos e biblioteca de desenvolvimento da OpenSSL.
+- Python 3 e Matplotlib para os gráficos do benchmark.
 
 ## Compilação e testes
 
@@ -215,6 +217,57 @@ O script também oferece atalhos:
 ./securebridge.sh --clean-all
 ```
 
+## Benchmark, CSVs e gráficos
+
+Coloque em `data/original/` pelo menos um texto `.txt` em cada faixa exigida:
+
+- Menor que 1 KB;
+- De 1 KB a menos de 10 KB;
+- De 10 KB a 100 KB;
+- Maior que 100 KB.
+
+Depois execute:
+
+```bash
+./securebridge.sh --benchmark 30
+```
+
+O número `30` é a quantidade de medições por algoritmo e arquivo. Antes delas,
+o script realiza duas rodadas de aquecimento que não entram nos resultados. A
+ordem das combinações é embaralhada, e cada arquivo recuperado é conferido por
+SHA-256 após cada medição.
+
+Também é possível executar pelo Makefile:
+
+```bash
+make benchmark ITERATIONS=30
+```
+
+Para indicar arquivos explicitamente ou mudar outros parâmetros:
+
+```bash
+python3 scripts/benchmark.py \
+  --inputs data/original/alice_512B.txt \
+           data/original/alice_5KiB.txt \
+           data/original/alice_50KiB.txt \
+           data/original/alice_completo.txt \
+  --iterations 30 \
+  --warmups 2 \
+  --key "NeymarJr"
+```
+
+Arquivos gerados em `results/`:
+
+- `benchmark_detalhado.csv`: uma linha para cada medição;
+- `benchmark_resumo.csv`: média, mediana, desvio-padrão, mínimo e máximo;
+- `grafico_cifragem.png`: comparação dos tempos medianos de cifragem;
+- `grafico_decifragem.png`: comparação dos tempos medianos de decifragem.
+
+Os tempos vêm da medição interna do C++, sem leitura e escrita de arquivos,
+derivação/carregamento de chaves ou cálculo dos hashes. Os gráficos usam escala
+logarítmica porque o RSA direto em blocos tende a ser muito mais lento que as
+cifras simétricas.
+
 ## Estrutura
 
 ```text
@@ -234,14 +287,16 @@ securebridge/
 │   ├── encrypted/
 │   └── recovered/
 ├── results/
+├── scripts/
+│   └── benchmark.py
 ├── Makefile
+├── requirements.txt
 └── README.md
 ```
 
 ## Próximas etapas
 
 - Preparar os quatro arquivos de texto do Projeto Gutenberg;
-- Implementar benchmark com múltiplas repetições;
-- Exportar média, mediana e demais resultados para CSV;
-- Gerar os gráficos de cifragem e decifragem;
+- Executar o benchmark definitivo na mesma máquina e sem outros programas pesados;
+- Inserir os CSVs e gráficos no relatório;
 - Produzir o relatório final.

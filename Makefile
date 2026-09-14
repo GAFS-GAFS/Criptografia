@@ -22,7 +22,7 @@ DEPENDENCIES := $(APP_OBJECTS:.o=.d) \
 	$(TEST_AFFINE_OBJECTS:.o=.d) \
 	$(TEST_CRYPTO_OBJECTS:.o=.d)
 
-.PHONY: all clean clean-generated clean-all limpar test
+.PHONY: all benchmark clean clean-generated clean-all limpar test
 
 all: $(TARGET)
 
@@ -47,8 +47,13 @@ test: $(TEST_AFFINE) $(TEST_CRYPTO)
 	./$(TEST_AFFINE)
 	./$(TEST_CRYPTO)
 
+benchmark: $(TARGET)
+	python3 scripts/benchmark.py --iterations $(or $(ITERATIONS),30)
+
 clean:
 	rm -rf build $(TARGET) $(TEST_AFFINE) $(TEST_CRYPTO)
+	@find scripts -type f -name '*.pyc' -delete 2>/dev/null || true
+	@find scripts -type d -name '__pycache__' -empty -delete 2>/dev/null || true
 
 clean-generated:
 	@find data/encrypted data/recovered results -type f -delete 2>/dev/null || true

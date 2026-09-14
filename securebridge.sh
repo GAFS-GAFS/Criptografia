@@ -17,6 +17,7 @@ Uso simplificado:
 Outros comandos:
   ./securebridge.sh --keygen-rsa
   ./securebridge.sh --test
+  ./securebridge.sh --benchmark [repeticoes]
   ./securebridge.sh --clean
   ./securebridge.sh --clean-build
   ./securebridge.sh --clean-all
@@ -170,6 +171,16 @@ case "$OPTION" in
     --test)
         [[ $# -eq 0 ]] || { usage; exit 1; }
         make test
+        ;;
+    --benchmark)
+        [[ $# -le 1 ]] || { usage; exit 1; }
+        ITERATIONS=${1:-30}
+        [[ "$ITERATIONS" =~ ^[1-9][0-9]*$ ]] || {
+            printf '%s\n' 'Erro: repeticoes deve ser um numero inteiro maior que zero.' >&2
+            exit 2
+        }
+        build_project
+        python3 scripts/benchmark.py --iterations "$ITERATIONS"
         ;;
     --clean)
         [[ $# -eq 0 ]] || { usage; exit 1; }
