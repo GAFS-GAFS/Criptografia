@@ -81,7 +81,7 @@ Os testes cobrem:
 Atalho equivalente, usando o arquivo de exemplo quando nenhum caminho for informado:
 
 ```bash
-./securebridge.sh --affine "NeymarJr"
+./securebridge.sh --affine "SUA-CHAVE"
 ```
 
 ## AES-256-GCM
@@ -115,7 +115,7 @@ A frase-chave é transformada em uma chave de 256 bits por SHA-256. Cada cifrage
 Atalho:
 
 ```bash
-./securebridge.sh --aes "NeymarJr"
+./securebridge.sh --aes "SUA-CHAVE"
 ```
 
 Se a chave estiver incorreta ou o arquivo for alterado, a autenticação GCM falhará.
@@ -166,13 +166,13 @@ Atalho: se nenhuma chave existir, o script gera automaticamente um par RSA-2048 
 Para executar os três algoritmos em sequência:
 
 ```bash
-./securebridge.sh --all "NeymarJr"
+./securebridge.sh --all "SUA-CHAVE"
 ```
 
 Um arquivo diferente pode ser informado como último argumento:
 
 ```bash
-./securebridge.sh --all "NeymarJr" data/original/alice_50KiB.txt
+./securebridge.sh --all "SUA-CHAVE" data/original/alice_50KiB.txt
 ```
 
 Com RSA de 2048 bits e OAEP/SHA-256, cada bloco aceita no máximo 190 bytes e produz 256 bytes cifrados. O programa divide e remonta os arquivos automaticamente.
@@ -253,7 +253,7 @@ python3 scripts/benchmark.py \
            data/original/alice_completo.txt \
   --iterations 30 \
   --warmups 2 \
-  --key "NeymarJr"
+  --key "SUA-CHAVE"
 ```
 
 Arquivos gerados em `results/`:
