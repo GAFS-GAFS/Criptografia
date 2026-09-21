@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+"""Executa benchmarks repetidos do SecureBridge e gera CSVs e graficos."""
 
 from __future__ import annotations
 
@@ -75,8 +76,8 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--key",
-        default="NeymarJr",
-        help="Frase-chave usada por AffineTrans e AES.",
+        required=True,
+        help="Frase-chave escolhida pelo usuario para AffineTrans e AES.",
     )
     parser.add_argument(
         "--output-dir",
@@ -397,8 +398,8 @@ def import_matplotlib():
         import matplotlib.pyplot as plt
     except ImportError as error:
         raise RuntimeError(
-            "O matplotlib nao esta instalado. Execute: "
-            "python3 -m pip install -r requirements.txt"
+            "O matplotlib nao esta instalado. Execute o benchmark pelo "
+            "securebridge.sh para preparar a .venv automaticamente."
         ) from error
     return plt
 

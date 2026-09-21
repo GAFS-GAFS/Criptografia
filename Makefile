@@ -48,7 +48,11 @@ test: $(TEST_AFFINE) $(TEST_CRYPTO)
 	./$(TEST_CRYPTO)
 
 benchmark: $(TARGET)
-	python3 scripts/benchmark.py --iterations $(or $(ITERATIONS),30)
+	@test -n "$(KEY)" || { \
+		echo 'Erro: informe a chave com KEY="sua-chave".' >&2; \
+		exit 2; \
+	}
+	./securebridge.sh --benchmark $(or $(ITERATIONS),30) "$(KEY)"
 
 clean:
 	rm -rf build $(TARGET) $(TEST_AFFINE) $(TEST_CRYPTO)

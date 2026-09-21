@@ -16,8 +16,7 @@ No Ubuntu, Debian ou Linux Mint:
 
 ```bash
 sudo apt update
-sudo apt install g++ make libssl-dev python3 python3-pip
-python3 -m pip install -r requirements.txt
+sudo apt install g++ make libssl-dev python3 python3-venv
 ```
 
 O projeto precisa de:
@@ -26,6 +25,10 @@ O projeto precisa de:
 - GNU Make;
 - Cabeçalhos e biblioteca de desenvolvimento da OpenSSL.
 - Python 3 e Matplotlib para os gráficos do benchmark.
+
+Não é necessário criar a `.venv` manualmente. Na primeira execução do
+benchmark, o `securebridge.sh` cria o ambiente virtual e instala as dependências
+de `requirements.txt` quando necessário.
 
 ## Compilação e testes
 
@@ -81,7 +84,7 @@ Os testes cobrem:
 Atalho equivalente, usando o arquivo de exemplo quando nenhum caminho for informado:
 
 ```bash
-./securebridge.sh --affine "SUA-CHAVE"
+./securebridge.sh --affine "NeymarJr"
 ```
 
 ## AES-256-GCM
@@ -115,7 +118,7 @@ A frase-chave é transformada em uma chave de 256 bits por SHA-256. Cada cifrage
 Atalho:
 
 ```bash
-./securebridge.sh --aes "SUA-CHAVE"
+./securebridge.sh --aes "NeymarJr"
 ```
 
 Se a chave estiver incorreta ou o arquivo for alterado, a autenticação GCM falhará.
@@ -166,13 +169,13 @@ Atalho: se nenhuma chave existir, o script gera automaticamente um par RSA-2048 
 Para executar os três algoritmos em sequência:
 
 ```bash
-./securebridge.sh --all "SUA-CHAVE"
+./securebridge.sh --all "NeymarJr"
 ```
 
 Um arquivo diferente pode ser informado como último argumento:
 
 ```bash
-./securebridge.sh --all "SUA-CHAVE" data/original/alice_50KiB.txt
+./securebridge.sh --all "NeymarJr" data/original/alice_50KiB.txt
 ```
 
 Com RSA de 2048 bits e OAEP/SHA-256, cada bloco aceita no máximo 190 bytes e produz 256 bytes cifrados. O programa divide e remonta os arquivos automaticamente.
@@ -237,10 +240,17 @@ o script realiza duas rodadas de aquecimento que não entram nos resultados. A
 ordem das combinações é embaralhada, e cada arquivo recuperado é conferido por
 SHA-256 após cada medição.
 
+Quando a chave não for informada no comando, o script a solicitará sem exibi-la
+na tela. Também é possível passá-la diretamente:
+
+```bash
+./securebridge.sh --benchmark 30 "Coritiba"
+```
+
 Também é possível executar pelo Makefile:
 
 ```bash
-make benchmark ITERATIONS=30
+make benchmark ITERATIONS=30 KEY="Coritiba"
 ```
 
 Para indicar arquivos explicitamente ou mudar outros parâmetros:
@@ -253,7 +263,7 @@ python3 scripts/benchmark.py \
            data/original/alice_completo.txt \
   --iterations 30 \
   --warmups 2 \
-  --key "SUA-CHAVE"
+  --key "Coritiba"
 ```
 
 Arquivos gerados em `results/`:

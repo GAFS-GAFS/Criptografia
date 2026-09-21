@@ -17,7 +17,7 @@ Uso simplificado:
 Outros comandos:
   ./securebridge.sh --keygen-rsa
   ./securebridge.sh --test
-  ./securebridge.sh --benchmark [repeticoes]
+  ./securebridge.sh --benchmark [repeticoes] [chave]
   ./securebridge.sh --clean
   ./securebridge.sh --clean-build
   ./securebridge.sh --clean-all
@@ -67,6 +67,37 @@ file_extension() {
 build_project() {
     make -s
     mkdir -p data/encrypted data/recovered results
+}
+
+prepare_benchmark_environment() {
+    local venv_directory="$PROJECT_DIRECTORY/.venv"
+    BENCHMARK_PYTHON="$venv_directory/bin/python3"
+
+    if [[ ! -x "$BENCHMARK_PYTHON" ]]; then
+        if ! command -v python3 >/dev/null 2>&1; then
+            printf '%s\n' 'Erro: Python 3 nao foi encontrado.' >&2
+            exit 2
+        fi
+
+        printf '%s\n' 'Ambiente virtual ausente; criando .venv...'
+        if ! python3 -m venv --system-site-packages "$venv_directory"; then
+            printf '%s\n' \
+                'Erro: nao foi possivel criar a venv. Instale o pacote python3-venv.' >&2
+            exit 2
+        fi
+    fi
+
+    if ! "$BENCHMARK_PYTHON" -c 'import matplotlib' >/dev/null 2>&1; then
+        if [[ ! -f "$PROJECT_DIRECTORY/requirements.txt" ]]; then
+            printf 'Erro: arquivo de dependencias nao encontrado: %s\n' \
+                "$PROJECT_DIRECTORY/requirements.txt" >&2
+            exit 2
+        fi
+
+        printf '%s\n' 'Instalando as dependencias do benchmark na .venv...'
+        "$BENCHMARK_PYTHON" -m pip install \
+            -r "$PROJECT_DIRECTORY/requirements.txt"
+    fi
 }
 
 run_symmetric() {
@@ -173,14 +204,32 @@ case "$OPTION" in
         make test
         ;;
     --benchmark)
-        [[ $# -le 1 ]] || { usage; exit 1; }
+        [[ $# -le 2 ]] || { usage; exit 1; }
         ITERATIONS=${1:-30}
         [[ "$ITERATIONS" =~ ^[1-9][0-9]*$ ]] || {
             printf '%s\n' 'Erro: repeticoes deve ser um numero inteiro maior que zero.' >&2
             exit 2
         }
+
+        PASSPHRASE=${2:-}
+        if [[ -z "$PASSPHRASE" ]]; then
+            printf '%s' 'Digite a chave do benchmark: ' >&2
+            if ! IFS= read -r -s PASSPHRASE; then
+                printf '\n%s\n' 'Erro: nao foi possivel ler a chave.' >&2
+                exit 2
+            fi
+            printf '\n' >&2
+        fi
+        if [[ -z "$PASSPHRASE" ]]; then
+            printf '%s\n' 'Erro: a chave do benchmark nao pode ser vazia.' >&2
+            exit 2
+        fi
+
         build_project
-        python3 scripts/benchmark.py --iterations "$ITERATIONS"
+        prepare_benchmark_environment
+        "$BENCHMARK_PYTHON" scripts/benchmark.py \
+            --iterations "$ITERATIONS" \
+            --key "$PASSPHRASE"
         ;;
     --clean)
         [[ $# -eq 0 ]] || { usage; exit 1; }
