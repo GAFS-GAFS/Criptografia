@@ -16,6 +16,8 @@
 namespace securebridge {
 namespace {
 
+// Formato do arquivo AES:
+// [assinatura de 8 bytes][nonce de 12 bytes][tag de 16 bytes][dados cifrados]
 constexpr std::array<Byte, 8> kMagic = {'S', 'B', 'R', 'A', 'E', 'S', '1', 0};
 constexpr std::size_t kKeySize = 32;
 constexpr std::size_t kIvSize = 12;
@@ -44,6 +46,7 @@ Bytes derive_aes256_key(const std::string& passphrase) {
         throw std::invalid_argument("A frase-chave AES nao pode ser vazia");
     }
 
+    // SHA-256 sempre produz os 32 bytes exigidos pelo AES-256.
     const Bytes passphrase_bytes(passphrase.begin(), passphrase.end());
     return sha256(passphrase_bytes);
 }
@@ -52,6 +55,7 @@ Bytes aes256_gcm_encrypt(const Bytes& plaintext, const Bytes& key) {
     validate_key(key);
     validate_input_size(plaintext.size());
 
+    // Cada cifragem recebe um nonce aleatorio novo. O nonce nao precisa ser secreto.
     std::array<Byte, kIvSize> iv{};
     if (RAND_bytes(iv.data(), static_cast<int>(iv.size())) != 1) {
         throw std::runtime_error(openssl_error("Falha ao gerar o nonce AES-GCM"));
@@ -92,6 +96,7 @@ Bytes aes256_gcm_encrypt(const Bytes& plaintext, const Bytes& key) {
     total += written;
     ciphertext.resize(static_cast<std::size_t>(total));
 
+    // A tag permite detectar chave incorreta ou qualquer alteracao no arquivo.
     std::array<Byte, kTagSize> tag{};
     if (EVP_CIPHER_CTX_ctrl(
             context.get(), EVP_CTRL_GCM_GET_TAG, static_cast<int>(tag.size()), tag.data()
@@ -115,6 +120,7 @@ Bytes aes256_gcm_decrypt(const Bytes& encrypted_file, const Bytes& key) {
         throw std::invalid_argument("Arquivo invalido: cabecalho AES-GCM ausente");
     }
 
+    // Separa o cabecalho dos bytes cifrados antes de chamar a OpenSSL.
     const Byte* iv = encrypted_file.data() + kMagic.size();
     std::array<Byte, kTagSize> tag{};
     std::copy_n(iv + kIvSize, kTagSize, tag.begin());
@@ -157,6 +163,7 @@ Bytes aes256_gcm_decrypt(const Bytes& encrypted_file, const Bytes& key) {
         throw std::runtime_error(openssl_error("Falha ao configurar a tag AES-GCM"));
     }
 
+    // EVP_DecryptFinal_ex tambem verifica a autenticidade da tag GCM.
     if (EVP_DecryptFinal_ex(context.get(), plaintext.data() + total, &written) != 1) {
         throw std::runtime_error(
             "Falha de autenticacao AES-GCM: chave incorreta ou arquivo alterado"

@@ -7,6 +7,7 @@
 
 namespace securebridge {
 
+// Calcula o resumo SHA-256 em bytes ou em representacao hexadecimal.
 Bytes sha256(const Bytes& data);
 std::string sha256_hex(const Bytes& data);
 

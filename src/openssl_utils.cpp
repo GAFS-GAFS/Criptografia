@@ -11,6 +11,7 @@ std::string openssl_error(const std::string& context) {
     std::ostringstream message;
     message << context;
 
+    // Uma operacao pode registrar mais de um erro; todos sao preservados.
     bool has_error = false;
     unsigned long code = 0;
     while ((code = ERR_get_error()) != 0) {

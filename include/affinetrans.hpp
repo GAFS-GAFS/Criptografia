@@ -15,6 +15,7 @@ struct AffineTransKey {
     std::vector<std::size_t> transposition;
 };
 
+// Deriva da frase-chave os parametros da substituicao afim e da transposicao.
 AffineTransKey derive_affinetrans_key(
     const std::string& passphrase,
     std::size_t block_size = 16

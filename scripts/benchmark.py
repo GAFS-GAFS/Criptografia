@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Sequence, Tuple
 
 
+# Caminhos padrao do projeto. Este script deve permanecer dentro de scripts/.
 PROJECT_DIR = Path(__file__).resolve().parent.parent
 BINARY = PROJECT_DIR / "securebridge"
 DEFAULT_INPUT_DIR = PROJECT_DIR / "data" / "original"
@@ -40,6 +41,8 @@ OPERATION_LABELS = {
 
 @dataclass(frozen=True)
 class Sample:
+    """Representa uma unica medicao produzida pelo benchmark."""
+
     algorithm: str
     input_path: Path
     size_bytes: int
@@ -100,6 +103,8 @@ def parse_args() -> argparse.Namespace:
 
 
 def size_range(size_bytes: int) -> str:
+    """Classifica um arquivo em uma das quatro faixas exigidas no trabalho."""
+
     if size_bytes < 1024:
         return "< 1 KB"
     if size_bytes < 10 * 1024:
@@ -115,6 +120,7 @@ def discover_inputs(paths: Optional[Sequence[Path]]) -> List[Path]:
     else:
         candidates = sorted(DEFAULT_INPUT_DIR.glob("*.txt"))
 
+    # Resolve os caminhos antes de remover duplicatas e ordenar por tamanho.
     resolved: List[Path] = []
     for path in candidates:
         absolute = path if path.is_absolute() else (Path.cwd() / path)
@@ -141,6 +147,8 @@ def validate_ranges(inputs: Sequence[Path], allow_incomplete: bool) -> None:
 
 
 def run_command(arguments: Sequence[str]) -> str:
+    """Executa o SecureBridge e transforma qualquer falha em uma excecao clara."""
+
     result = subprocess.run(
         arguments,
         cwd=PROJECT_DIR,
@@ -164,6 +172,8 @@ def extract_time(output: str) -> float:
 
 
 def sha256_file(path: Path) -> str:
+    """Calcula o SHA-256 sem carregar o arquivo inteiro na memoria."""
+
     digest = hashlib.sha256()
     with path.open("rb") as stream:
         for block in iter(lambda: stream.read(1024 * 1024), b""):
@@ -172,13 +182,12 @@ def sha256_file(path: Path) -> str:
 
 
 def ensure_binary_and_keys() -> None:
+    # Compila o programa e cria as chaves somente na primeira execucao.
     run_command(["make", "-s"])
     PRIVATE_KEY.parent.mkdir(parents=True, exist_ok=True)
 
     if not PRIVATE_KEY.exists() and not PUBLIC_KEY.exists():
-        run_command(
-            [str(BINARY), "keygen-rsa", str(PRIVATE_KEY), str(PUBLIC_KEY)]
-        )
+        run_command([str(BINARY), "keygen-rsa", str(PRIVATE_KEY), str(PUBLIC_KEY)])
     elif not PRIVATE_KEY.exists() or not PUBLIC_KEY.exists():
         raise ValueError(
             "Existe apenas uma chave RSA. Remova o arquivo restante ou gere um par completo."
@@ -197,6 +206,7 @@ def run_pair(
     passphrase: str,
     temporary_dir: Path,
 ) -> Tuple[float, float]:
+    # O identificador evita conflitos entre arquivos com o mesmo nome.
     token = hashlib.sha256(str(input_path).encode("utf-8")).hexdigest()[:12]
     encrypted = temporary_dir / f"{token}-{algorithm}.encrypted"
     recovered = temporary_dir / f"{token}-{algorithm}.recovered"
@@ -224,6 +234,7 @@ def run_pair(
         ]
     )
 
+    # Uma medicao so e aceita quando a decifragem recupera o arquivo original.
     if sha256_file(input_path) != sha256_file(recovered):
         raise RuntimeError(
             f"Falha de integridade em {ALGORITHM_LABELS[algorithm]} / {input_path.name}"
@@ -249,6 +260,7 @@ def execute_benchmark(args: argparse.Namespace, inputs: Sequence[Path]) -> List[
     with tempfile.TemporaryDirectory(prefix="securebridge-benchmark-") as temp:
         temporary_dir = Path(temp)
 
+        # Aquecimentos reduzem o impacto da primeira execucao nos resultados.
         if args.warmups:
             print(f"Aquecimento: {args.warmups} rodada(s), sem registrar tempos...")
         for _ in range(args.warmups):
@@ -259,6 +271,7 @@ def execute_benchmark(args: argparse.Namespace, inputs: Sequence[Path]) -> List[
 
         print(f"Medicao: {args.iterations} rodada(s) por combinacao...")
         for iteration in range(1, args.iterations + 1):
+            # A ordem muda a cada rodada para reduzir vies por aquecimento da CPU.
             current_order = combinations.copy()
             generator.shuffle(current_order)
             for algorithm, input_path in current_order:
@@ -320,6 +333,8 @@ SummaryKey = Tuple[str, Path, int, str, str]
 
 
 def summarize(samples: Sequence[Sample]) -> List[Dict[str, object]]:
+    """Agrupa as medicoes e calcula as estatisticas usadas no relatorio."""
+
     groups: Dict[SummaryKey, List[float]] = defaultdict(list)
     for sample in samples:
         key = (
@@ -432,6 +447,7 @@ def create_chart(
         all_values.extend(value for value in values if value > 0)
         axis.plot(x_positions, values, marker="o", linewidth=2, label=label)
 
+    # A escala logaritmica permite comparar tempos de ordens de grandeza distintas.
     if all_values:
         axis.set_yscale("log")
     axis.set_xticks(x_positions, tick_labels)
@@ -463,6 +479,7 @@ def main() -> int:
         output_dir = args.output_dir.resolve()
         output_dir.mkdir(parents=True, exist_ok=True)
 
+        # O CSV detalhado preserva cada medicao; o resumo alimenta os graficos.
         raw_csv = output_dir / "benchmark_detalhado.csv"
         summary_csv = output_dir / "benchmark_resumo.csv"
         encryption_chart = output_dir / "grafico_cifragem.png"

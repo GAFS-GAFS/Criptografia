@@ -12,6 +12,7 @@ void check_round_trip(const securebridge::Bytes& original, const std::string& pa
     const auto encrypted = securebridge::affinetrans_encrypt(original, key);
     const auto recovered = securebridge::affinetrans_decrypt(encrypted, key);
 
+    // A cifra sempre completa o ultimo bloco e deve recuperar os bytes originais.
     assert(encrypted.size() % key.transposition.size() == 0);
     assert(recovered == original);
 }
@@ -19,9 +20,11 @@ void check_round_trip(const securebridge::Bytes& original, const std::string& pa
 }  // namespace
 
 int main() {
+    // Casos de borda: arquivo vazio e arquivo com apenas um byte.
     check_round_trip({}, "chave-vazia");
     check_round_trip({0x41}, "chave-um-byte");
 
+    // Tamanhos ao redor dos limites de bloco validam o preenchimento.
     for (const std::size_t size : {15U, 16U, 17U, 255U, 256U, 257U, 4097U}) {
         securebridge::Bytes data(size);
         for (std::size_t i = 0; i < data.size(); ++i) {

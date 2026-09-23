@@ -17,8 +17,13 @@ namespace {
 using Clock = std::chrono::steady_clock;
 using securebridge::Bytes;
 
-enum class Algorithm { AffineTrans, Aes, Rsa };
+enum class Algorithm {
+    AffineTrans,
+    Aes,
+    Rsa
+};
 
+// Mantem juntos o resultado de uma operacao e o tempo gasto por ela.
 struct TimedResult {
     Bytes data;
     double milliseconds{};
@@ -29,18 +34,27 @@ double elapsed_ms(Clock::time_point start, Clock::time_point end) {
 }
 
 Algorithm parse_algorithm(const std::string& value) {
-    if (value == "affinetrans") return Algorithm::AffineTrans;
-    if (value == "aes") return Algorithm::Aes;
-    if (value == "rsa") return Algorithm::Rsa;
-    throw std::invalid_argument("Algoritmo desconhecido: " + value);
+    if (value == "affinetrans") {
+        return Algorithm::AffineTrans;
+    } else if (value == "aes") {
+        return Algorithm::Aes;
+    } else if (value == "rsa") {
+        return Algorithm::Rsa;
+    } else {
+        throw std::invalid_argument("Algoritmo desconhecido: " + value);
+    }
 }
 
 const char* algorithm_name(Algorithm algorithm) {
     switch (algorithm) {
-        case Algorithm::AffineTrans: return "AffineTrans";
-        case Algorithm::Aes: return "AES-256-GCM";
-        case Algorithm::Rsa: return "RSA-2048-OAEP-SHA256";
+        case Algorithm::AffineTrans:
+            return "AffineTrans";
+        case Algorithm::Aes:
+            return "AES-256-GCM";
+        case Algorithm::Rsa:
+            return "RSA-2048-OAEP-SHA256";
     }
+
     return "Desconhecido";
 }
 
@@ -82,6 +96,7 @@ TimedResult encrypt_data(
     const std::string& key_argument
 ) {
     if (algorithm == Algorithm::AffineTrans) {
+        // A derivacao da chave fica fora da medicao para comparar apenas a cifra.
         const auto key = securebridge::derive_affinetrans_key(key_argument);
         const auto start = Clock::now();
         Bytes output = securebridge::affinetrans_encrypt(plaintext, key);
@@ -90,6 +105,7 @@ TimedResult encrypt_data(
     }
 
     if (algorithm == Algorithm::Aes) {
+        // A frase-chave e convertida em 256 bits por SHA-256.
         const Bytes key = securebridge::derive_aes256_key(key_argument);
         const auto start = Clock::now();
         Bytes output = securebridge::aes256_gcm_encrypt(plaintext, key);
@@ -97,6 +113,7 @@ TimedResult encrypt_data(
         return {std::move(output), elapsed_ms(start, end)};
     }
 
+    // Para RSA, key_argument indica o arquivo da chave publica.
     auto key = securebridge::load_rsa_public_key(key_argument);
     const auto start = Clock::now();
     Bytes output = securebridge::rsa_oaep_encrypt_blocks(plaintext, key.get());
@@ -125,6 +142,7 @@ TimedResult decrypt_data(
         return {std::move(output), elapsed_ms(start, end)};
     }
 
+    // Para RSA, key_argument indica o arquivo da chave privada.
     auto key = securebridge::load_rsa_private_key(key_argument);
     const auto start = Clock::now();
     Bytes output = securebridge::rsa_oaep_decrypt_blocks(ciphertext, key.get());
@@ -141,9 +159,13 @@ void run_file_operation(
 ) {
     require_distinct_paths(input_path, output_path);
     const Bytes input = securebridge::read_binary_file(input_path);
-    const TimedResult result = encrypt
-        ? encrypt_data(algorithm, input, key_argument)
-        : decrypt_data(algorithm, input, key_argument);
+
+    TimedResult result;
+    if (encrypt) {
+        result = encrypt_data(algorithm, input, key_argument);
+    } else {
+        result = decrypt_data(algorithm, input, key_argument);
+    }
 
     securebridge::write_binary_file(output_path, result.data);
     std::cout << (encrypt ? "Cifragem" : "Decifragem") << " concluida\n"
@@ -165,6 +187,8 @@ void print_simulation_result(
 ) {
     const std::string original_hash = securebridge::sha256_hex(original);
     const std::string recovered_hash = securebridge::sha256_hex(recovered);
+
+    // A comparacao direta e o SHA-256 confirmam que o arquivo foi recuperado.
     const bool valid = original == recovered && original_hash == recovered_hash;
 
     std::cout << "==============================================\n"
@@ -205,8 +229,13 @@ void simulate_symmetric(
     securebridge::write_binary_file(encrypted_path, encrypted.data);
     securebridge::write_binary_file(recovered_path, recovered.data);
     print_simulation_result(
-        algorithm, input_path, original, encrypted.data, recovered.data,
-        encrypted.milliseconds, recovered.milliseconds
+        algorithm,
+        input_path,
+        original,
+        encrypted.data,
+        recovered.data,
+        encrypted.milliseconds,
+        recovered.milliseconds
     );
 }
 
@@ -236,7 +265,11 @@ void simulate_rsa(
     securebridge::write_binary_file(encrypted_path, encrypted);
     securebridge::write_binary_file(recovered_path, recovered);
     print_simulation_result(
-        Algorithm::Rsa, input_path, original, encrypted, recovered,
+        Algorithm::Rsa,
+        input_path,
+        original,
+        encrypted,
+        recovered,
         elapsed_ms(encryption_start, encryption_end),
         elapsed_ms(decryption_start, decryption_end)
     );
@@ -253,6 +286,7 @@ int main(int argc, char* argv[]) {
 
         const std::string command = argv[1];
 
+        // Gera o par de chaves usado pelos comandos RSA.
         if (command == "keygen-rsa" && (argc == 4 || argc == 5)) {
             const int bits = argc == 5 ? std::stoi(argv[4]) : 2048;
             securebridge::generate_rsa_keypair(argv[2], argv[3], bits);
@@ -262,15 +296,21 @@ int main(int argc, char* argv[]) {
             return 0;
         }
 
+        // Executa apenas uma operacao de cifragem ou decifragem.
         if ((command == "encrypt" || command == "decrypt") &&
-            argc == 7 && std::string(argv[5]) == "--key") {
+            argc == 7 &&
+            std::string(argv[5]) == "--key") {
             run_file_operation(
-                command == "encrypt", parse_algorithm(argv[2]),
-                argv[3], argv[4], argv[6]
+                command == "encrypt",
+                parse_algorithm(argv[2]),
+                argv[3],
+                argv[4],
+                argv[6]
             );
             return 0;
         }
 
+        // Simula o ciclo completo para as cifras baseadas em frase-chave.
         if (command == "simulate" && argc == 8 &&
             std::string(argv[6]) == "--key") {
             const Algorithm algorithm = parse_algorithm(argv[2]);
@@ -281,6 +321,7 @@ int main(int argc, char* argv[]) {
             return 0;
         }
 
+        // RSA usa arquivos diferentes para a chave publica e a privada.
         if (command == "simulate" && argc == 10 &&
             std::string(argv[2]) == "rsa" &&
             std::string(argv[6]) == "--public" &&

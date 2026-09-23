@@ -6,6 +6,7 @@
 
 namespace securebridge {
 
+// Tipos comuns usados por todos os algoritmos do projeto.
 using Byte = std::uint8_t;
 using Bytes = std::vector<Byte>;
 

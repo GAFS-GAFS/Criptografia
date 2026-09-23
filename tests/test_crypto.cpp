@@ -26,6 +26,7 @@ securebridge::Bytes make_data(std::size_t size) {
 void test_aes() {
     const auto key = securebridge::derive_aes256_key("AES-teste-2026");
 
+    // Testa arquivos vazios, limites de bloco e um arquivo com varios blocos.
     for (const std::size_t size : {0U, 1U, 15U, 16U, 17U, 255U, 4097U}) {
         const auto original = make_data(size);
         const auto encrypted = securebridge::aes256_gcm_encrypt(original, key);
@@ -33,6 +34,7 @@ void test_aes() {
         require(recovered == original, "AES nao recuperou os dados originais");
     }
 
+    // A tag GCM deve rejeitar qualquer alteracao nos dados cifrados.
     auto altered = securebridge::aes256_gcm_encrypt(make_data(128), key);
     altered.back() ^= 0x01U;
     bool rejected = false;
@@ -62,6 +64,7 @@ void test_rsa() {
             "O limite RSA-2048/OAEP-SHA256 deveria ser 190 bytes"
         );
 
+        // 189/190/191 bytes exercitam o limite de um bloco RSA-OAEP.
         for (const std::size_t size : {0U, 1U, 189U, 190U, 191U, 500U, 4097U}) {
             const auto original = make_data(size);
             const auto encrypted =
@@ -71,6 +74,7 @@ void test_rsa() {
             require(recovered == original, "RSA nao recuperou os dados originais");
         }
 
+        // OAEP tambem deve detectar um bloco cifrado adulterado.
         auto altered = securebridge::rsa_oaep_encrypt_blocks(make_data(256), public_key.get());
         altered.back() ^= 0x01U;
         bool rejected = false;

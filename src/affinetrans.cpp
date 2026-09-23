@@ -12,6 +12,7 @@ namespace {
 
 constexpr std::uint16_t kByteModulus = 256;
 
+// Calcula o inverso de "value" no modulo 256 pelo algoritmo de Euclides.
 Byte modular_inverse(Byte value) {
     int old_r = value;
     int r = kByteModulus;
@@ -76,6 +77,7 @@ std::uint64_t xorshift64(std::uint64_t& state) {
 }
 
 Bytes add_padding(const Bytes& input, std::size_t block_size) {
+    // Preenchimento no estilo PKCS#7: cada byte guarda o tamanho adicionado.
     const std::size_t padding_size = block_size - (input.size() % block_size);
     Bytes padded = input;
     padded.insert(
@@ -129,6 +131,7 @@ AffineTransKey derive_affinetrans_key(
     }
     key.offset = digest[1];
 
+    // Comeca com a ordem natural e a embaralha de forma deterministica.
     key.transposition.resize(block_size);
     std::iota(key.transposition.begin(), key.transposition.end(), 0);
 
@@ -147,12 +150,14 @@ Bytes affinetrans_encrypt(const Bytes& plaintext, const AffineTransKey& key) {
     const std::size_t block_size = key.transposition.size();
     Bytes substituted = add_padding(plaintext, block_size);
 
+    // Etapa 1: substituicao afim de cada byte: (a*x + b) mod 256.
     for (Byte& value : substituted) {
         const std::uint16_t transformed =
             static_cast<std::uint16_t>(key.multiplier) * value + key.offset;
         value = static_cast<Byte>(transformed % kByteModulus);
     }
 
+    // Etapa 2: reorganizacao das posicoes dentro de cada bloco.
     Bytes ciphertext(substituted.size());
     for (std::size_t block = 0; block < substituted.size(); block += block_size) {
         for (std::size_t output_position = 0;
@@ -176,6 +181,7 @@ Bytes affinetrans_decrypt(const Bytes& ciphertext, const AffineTransKey& key) {
         );
     }
 
+    // Desfaz primeiro a transposicao, recolocando cada byte em sua posicao.
     Bytes substituted(ciphertext.size());
     for (std::size_t block = 0; block < ciphertext.size(); block += block_size) {
         for (std::size_t input_position = 0;
@@ -189,6 +195,7 @@ Bytes affinetrans_decrypt(const Bytes& ciphertext, const AffineTransKey& key) {
     const Byte inverse = modular_inverse(key.multiplier);
     Bytes plaintext(substituted.size());
 
+    // Aplica a operacao inversa: a^-1 * (y - b) mod 256.
     for (std::size_t i = 0; i < substituted.size(); ++i) {
         const int difference = static_cast<int>(substituted[i]) - key.offset;
         const int normalized = (difference % kByteModulus + kByteModulus) % kByteModulus;

@@ -25,6 +25,7 @@ Bytes sha256(const Bytes& data) {
         throw std::runtime_error("Falha ao processar SHA-256");
     }
 
+    // EVP_MAX_MD_SIZE fornece espaco suficiente para qualquer resumo EVP.
     Bytes digest(EVP_MAX_MD_SIZE);
     unsigned int digest_size = 0;
     if (EVP_DigestFinal_ex(context.get(), digest.data(), &digest_size) != 1) {

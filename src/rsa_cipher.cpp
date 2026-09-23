@@ -15,6 +15,9 @@
 namespace securebridge {
 namespace {
 
+// Formato do arquivo RSA:
+// [assinatura de 8 bytes][tamanho do bloco em 4 bytes]
+// [tamanho original em 8 bytes][blocos RSA-OAEP]
 constexpr std::array<Byte, 8> kMagic = {'S', 'B', 'R', 'R', 'S', 'A', '1', 0};
 constexpr std::size_t kHeaderSize = kMagic.size() + 4 + 8;
 constexpr std::size_t kSha256Size = 32;
@@ -66,6 +69,7 @@ PkeyContextPtr create_oaep_context(EVP_PKEY* key, bool encrypt) {
     const int initialization_result =
         encrypt ? EVP_PKEY_encrypt_init(context.get()) : EVP_PKEY_decrypt_init(context.get());
 
+    // OAEP e MGF1 usam SHA-256 nos dois sentidos da operacao.
     if (initialization_result <= 0 ||
         EVP_PKEY_CTX_set_rsa_padding(context.get(), RSA_PKCS1_OAEP_PADDING) <= 0 ||
         EVP_PKEY_CTX_set_rsa_oaep_md(context.get(), EVP_sha256()) <= 0 ||
@@ -99,6 +103,7 @@ void generate_rsa_keypair(
     }
     RsaKeyPtr key(raw_key, EVP_PKEY_free);
 
+    // As pastas sao criadas apenas quando fazem parte do caminho recebido.
     if (private_key_path.has_parent_path()) {
         std::filesystem::create_directories(private_key_path.parent_path());
     }
@@ -158,6 +163,8 @@ RsaKeyPtr load_rsa_private_key(const std::filesystem::path& path) {
 std::size_t rsa_oaep_max_plaintext_size(EVP_PKEY* key) {
     validate_rsa_key(key);
     const int rsa_size = EVP_PKEY_get_size(key);
+
+    // Limite OAEP: tamanho da chave - 2*tamanho_do_hash - 2.
     const int overhead = static_cast<int>(2 * kSha256Size + 2);
     if (rsa_size <= overhead) {
         throw std::invalid_argument("Chave RSA pequena demais para OAEP com SHA-256");
@@ -183,6 +190,7 @@ Bytes rsa_oaep_encrypt_blocks(const Bytes& plaintext, EVP_PKEY* public_key) {
     append_u32(result, static_cast<std::uint32_t>(rsa_size));
     append_u64(result, static_cast<std::uint64_t>(plaintext.size()));
 
+    // Cada trecho de texto gera exatamente um bloco do tamanho da chave RSA.
     for (std::size_t offset = 0; offset < plaintext.size(); offset += chunk_size) {
         const std::size_t current_size = std::min(chunk_size, plaintext.size() - offset);
         std::size_t encrypted_size = rsa_size;
@@ -229,6 +237,7 @@ Bytes rsa_oaep_decrypt_blocks(const Bytes& encrypted_file, EVP_PKEY* private_key
         throw std::invalid_argument("Arquivo RSA truncado: existe um bloco incompleto");
     }
 
+    // O cabecalho e a quantidade de blocos precisam descrever o mesmo arquivo.
     const std::size_t block_count = payload_size / rsa_size;
     const std::size_t max_chunk = rsa_oaep_max_plaintext_size(private_key);
     if (original_size > static_cast<std::uint64_t>(block_count * max_chunk) ||
@@ -241,6 +250,7 @@ Bytes rsa_oaep_decrypt_blocks(const Bytes& encrypted_file, EVP_PKEY* private_key
     Bytes plaintext;
     plaintext.reserve(static_cast<std::size_t>(original_size));
 
+    // Decifra os blocos em ordem e recompõe o arquivo original.
     for (std::size_t offset = kHeaderSize;
          offset < encrypted_file.size();
          offset += rsa_size) {

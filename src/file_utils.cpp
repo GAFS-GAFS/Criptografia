@@ -9,6 +9,7 @@
 namespace securebridge {
 
 Bytes read_binary_file(const std::filesystem::path& path) {
+    // Abrir no fim permite descobrir o tamanho antes de alocar o vetor.
     std::ifstream input(path, std::ios::binary | std::ios::ate);
     if (!input) {
         throw std::runtime_error("Nao foi possivel abrir o arquivo: " + path.string());
@@ -29,6 +30,7 @@ Bytes read_binary_file(const std::filesystem::path& path) {
 }
 
 void write_binary_file(const std::filesystem::path& path, const Bytes& data) {
+    // Cria a arvore de diretorios somente quando ela foi informada no caminho.
     if (path.has_parent_path()) {
         std::filesystem::create_directories(path.parent_path());
     }
